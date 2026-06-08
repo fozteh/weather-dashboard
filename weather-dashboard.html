@@ -221,6 +221,45 @@ body.w-fog-day {
   text-shadow: 0 2px 10px var(--shadow);
 }
 
+/* ── Mid panel — moon & air quality ── */
+#mid-panel {
+  display: flex;
+  gap: 14px;
+}
+
+.mid-card {
+  min-width: 200px;
+}
+
+.mid-icon {
+  font-size: 46px;
+  line-height: 1;
+  margin: 10px 0 10px;
+  filter: drop-shadow(0 2px 12px var(--shadow));
+}
+
+.mid-val {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--tx1);
+  line-height: 1;
+}
+
+.mid-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: var(--tx3);
+}
+
+.aqi-good     { color: rgba(80,210,110,.95);  }
+.aqi-fair     { color: rgba(220,195,50,.95);  }
+.aqi-moderate { color: rgba(235,130,30,.95);  }
+.aqi-poor     { color: rgba(220,70,55,.95);   }
+.aqi-verypoor { color: rgba(170,55,170,.95);  }
+
 /* ── RIGHT ── */
 #side {
   grid-area: side;
@@ -395,6 +434,21 @@ body.w-fog-day {
       <span id="ampm-tag">AM</span>
       <div id="date-str">Monday · 1 January 2025</div>
     </div>
+    <div id="mid-panel">
+      <div class="scard mid-card">
+        <div class="scard-label">Moon</div>
+        <div class="mid-icon" id="moon-icon">🌕</div>
+        <div class="mid-val" id="moon-phase">—</div>
+        <div class="mid-sub" id="moon-illum">—</div>
+      </div>
+      <div class="scard mid-card">
+        <div class="scard-label">Air Quality</div>
+        <div class="mid-icon" style="font-size:46px;margin:10px 0 10px;">🌿</div>
+        <div class="mid-val" id="aqi-val">—</div>
+        <div class="mid-sub" id="aqi-index">—</div>
+      </div>
+    </div>
+
     <div id="cur-weather">
       <div id="wx-icon">🌤️</div>
       <div id="temp-display">—<sup>°C</sup></div>
@@ -832,6 +886,71 @@ async function loadWeather() {
     document.getElementById('condition-pill').textContent = 'Check connection';
   }
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  MOON PHASE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function getMoonPhase() {
+  const known   = new Date(Date.UTC(2000, 0, 6, 18, 14)); // known new moon
+  const cycle   = 29.53058867;
+  const elapsed = (Date.now() - known) / 86400000;
+  const phase   = ((elapsed % cycle) + cycle) % cycle;
+  const illumination = Math.round((1 - Math.cos(phase / cycle * 2 * Math.PI)) / 2 * 100);
+
+  let icon, name;
+  if      (phase <  1.85) { icon = '🌑'; name = 'New Moon'; }
+  else if (phase <  7.38) { icon = '🌒'; name = 'Waxing Crescent'; }
+  else if (phase <  9.22) { icon = '🌓'; name = 'First Quarter'; }
+  else if (phase < 14.75) { icon = '🌔'; name = 'Waxing Gibbous'; }
+  else if (phase < 16.61) { icon = '🌕'; name = 'Full Moon'; }
+  else if (phase < 22.15) { icon = '🌖'; name = 'Waning Gibbous'; }
+  else if (phase < 23.99) { icon = '🌗'; name = 'Last Quarter'; }
+  else                    { icon = '🌘'; name = 'Waning Crescent'; }
+
+  return { icon, name, illumination };
+}
+
+function updateMoon() {
+  const m = getMoonPhase();
+  document.getElementById('moon-icon').textContent  = m.icon;
+  document.getElementById('moon-phase').textContent = m.name;
+  document.getElementById('moon-illum').textContent = m.illumination + '% illuminated';
+}
+
+updateMoon();
+setInterval(updateMoon, 3600000); // refresh every hour
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  AIR QUALITY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function loadAirQuality() {
+  try {
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality`
+              + `?latitude=${CFG.lat}&longitude=${CFG.lon}&current=european_aqi`;
+    const d   = await (await fetch(url)).json();
+    const aqi = d.current.european_aqi;
+
+    let label, cls;
+    if      (aqi <= 20)  { label = 'Good';      cls = 'aqi-good';     }
+    else if (aqi <= 40)  { label = 'Fair';       cls = 'aqi-fair';     }
+    else if (aqi <= 60)  { label = 'Moderate';   cls = 'aqi-moderate'; }
+    else if (aqi <= 80)  { label = 'Poor';       cls = 'aqi-poor';     }
+    else if (aqi <= 100) { label = 'Very Poor';  cls = 'aqi-verypoor'; }
+    else                 { label = 'Hazardous';  cls = 'aqi-poor';     }
+
+    const valEl = document.getElementById('aqi-val');
+    valEl.textContent = label;
+    valEl.className   = 'mid-val ' + cls;
+    document.getElementById('aqi-index').textContent = 'Index ' + aqi;
+  } catch(e) {
+    console.error('AQI error:', e);
+  }
+}
+
+loadAirQuality();
+setInterval(loadAirQuality, 30 * 60000); // refresh every 30 mins
 
 loadWeather();
 setInterval(loadWeather, CFG.updateMins * 60000);

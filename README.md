@@ -173,7 +173,20 @@ crontab -l
 
 ---
 
-## Step 7 — Keep the Screen On
+## Step 7 — Screen Blanking Hours
+
+To turn the display off at night and back on in the morning, add two more cron entries (`crontab -e`):
+
+```
+0 22 * * * DISPLAY=:0 xset dpms force off
+0 6  * * * DISPLAY=:0 xset dpms force on
+```
+
+This blanks the screen at 10pm and wakes it at 6am every day. Adjust the hours to suit — the format is `minute hour * * *`.
+
+---
+
+## Step 8 — Keep the Screen On
 
 Edit lightdm to prevent the display from blanking permanently:
 
