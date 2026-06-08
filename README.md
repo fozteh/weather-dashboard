@@ -156,15 +156,14 @@ Trixie's session management changed significantly and the traditional LXDE autos
 crontab -e
 ```
 
-Select nano if prompted. Add this line at the bottom:
+Select nano if prompted. Add these two lines at the bottom:
 
 ```
-@reboot sleep 15 && DISPLAY=:0 unclutter -idle 0.1 -root & DISPLAY=:0 /usr/bin/chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --password-store=basic --app=file:///home/<yourname>/dashboard/weather-dashboard.html
+@reboot sleep 15 && DISPLAY=:0 unclutter -idle 0.1 -root
+@reboot sleep 16 && DISPLAY=:0 /usr/bin/chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --password-store=basic --app=file:///home/pi/dashboard/weather-dashboard.html
 ```
 
-Replace `<yourname>` with your username. Save and reboot.
-
-The `unclutter -idle 0.1 -root` part hides the mouse cursor almost immediately — without it a static cursor sits in the middle of the screen.
+The first line starts `unclutter` (hides the mouse cursor), the second launches Chromium one second later. Using two separate entries avoids backgrounding issues with `&` in crontab. Save and reboot.
 
 The `sleep 15` gives the desktop time to fully load before Chromium launches. Verify it's set correctly with:
 
@@ -231,7 +230,7 @@ Also update the location name displayed on screen — search the HTML for `Stanl
 | Weather data not loading | Check internet: `ping api.open-meteo.com` |
 | Clock shows wrong time | Set timezone: `sudo raspi-config` → Localisation Options → Timezone → Europe/London |
 | Chromium shows "Restore pages?" | Add `--disable-session-crashed-bubble --disable-restore-session-state` to launch command |
-| Cursor visible on screen | Install `unclutter` (`sudo apt install unclutter`) and add `DISPLAY=:0 unclutter -idle 0.1 -root &` to your crontab before the Chromium line |
+| Cursor visible on screen | Install `unclutter` (`sudo apt install unclutter`) and add `@reboot sleep 15 && DISPLAY=:0 unclutter -idle 0.1 -root` as a separate crontab entry above the Chromium line |
 
 ---
 
