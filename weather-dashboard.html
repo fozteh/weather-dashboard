@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Weather — Stanley, County Durham</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --font-display: 'Lora', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  background: #0d1b2a;
+}
+
+/* ── Background image layer ── */
+#bg {
+  position: fixed; inset: 0; z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity 1.2s ease;
+}
+
+/* Crossfade using a second layer underneath */
+#bg-prev {
+  position: fixed; inset: 0; z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Dark scrim over image so text stays readable */
+#scrim {
+  position: fixed; inset: 0; z-index: 1;
+  transition: background 2s ease;
+}
+
+/* Default scrim — dark for dark images */
+body { --scrim: rgba(0,0,0,.42); }
+
+/* Lighter scrim for bright daytime images */
+body.scrim-light { --scrim: rgba(0,0,0,.28); }
+
+/* Heavier scrim for very bright images (snow day, fog day) */
+body.scrim-heavy { --scrim: rgba(0,0,20,.55); }
+
+#scrim { background: var(--scrim); }
+
+/* ── Atmospheric overlays ── */
+#atmosphere { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+
+.rain-layer {
+  position: absolute; inset: 0; opacity: 0; transition: opacity 2s ease;
+  background-image: repeating-linear-gradient(
+    96deg, transparent 0 3px, rgba(160,200,255,.06) 3px 4px
+  );
+  animation: rain 0.7s linear infinite;
+}
+@keyframes rain { from{background-position:0 -80px} to{background-position:15px 0} }
+body.w-rain .rain-layer  { opacity: 1; }
+body.w-storm .rain-layer { opacity: 1; animation-duration:.35s; }
+
+#snow-layer { position: absolute; inset: 0; }
+
+#stars-canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 2s ease; }
+body.w-clear-night #stars-canvas,
+body.w-cloudy-night #stars-canvas { opacity: 1; }
+
+#lightning-flash {
+  position: fixed; inset: 0; z-index: 3;
+  background: white; opacity: 0; pointer-events: none;
+  transition: opacity .05s;
+}
+
+/* Snowflakes */
+.flake {
+  position: absolute; color: rgba(255,255,255,.80);
+  animation: fall linear infinite; pointer-events: none;
+  user-select: none;
+}
+@keyframes fall {
+  from { transform: translateY(-30px) rotate(0deg); }
+  to   { transform: translateY(110vh)  rotate(400deg); }
+}
+
+/* ── Text tokens — default dark bg (bright text) ── */
+body {
+  --tx1: rgba(255,255,255,.97);
+  --tx2: rgba(255,255,255,.82);
+  --tx3: rgba(255,255,255,.56);
+  --panel: rgba(0,0,0,.36);
+  --panel-border: rgba(255,255,255,.18);
+  --shadow: rgba(0,0,0,.55);
+}
+
+/* Snow day / fog day — very light image, swap to dark text */
+body.w-snow-day,
+body.w-fog-day {
+  --tx1: rgba(8,18,40,.96);
+  --tx2: rgba(8,18,40,.68);
+  --tx3: rgba(8,18,40,.42);
+  --panel: rgba(8,18,60,.09);
+  --panel-border: rgba(8,18,60,.18);
+  --shadow: rgba(8,18,50,.22);
+}
+
+/* ══════════════════════════════════
+   LAYOUT
+══════════════════════════════════ */
+#app {
+  position: relative; z-index: 10;
+  width: 100vw; height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "main  side"
+    "strip strip";
+  padding: 54px 56px 40px 56px;
+}
+
+/* ── LEFT ── */
+#main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#clock {
+  font-family: var(--font-display);
+  font-size: 160px;
+  font-weight: 500;
+  letter-spacing: -6px;
+  color: var(--tx1);
+  text-shadow: 0 4px 40px var(--shadow), 0 2px 8px var(--shadow);
+  line-height: .95;
+}
+
+#ampm-tag {
+  display: inline-block;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 7px;
+  color: var(--tx2);
+  text-shadow: 0 2px 12px var(--shadow);
+  margin-top: 14px;
+  text-transform: uppercase;
+}
+
+#date-str {
+  margin-top: 18px;
+  font-size: 20px;
+  font-weight: 300;
+  letter-spacing: 4px;
+  color: var(--tx2);
+  text-shadow: 0 2px 12px var(--shadow);
+  text-transform: uppercase;
+}
+
+#cur-weather { display: flex; flex-direction: column; }
+
+#wx-icon {
+  font-size: 88px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 18px var(--shadow));
+  margin-bottom: 14px;
+}
+
+#temp-display {
+  font-family: var(--font-display);
+  font-size: 110px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--tx1);
+  text-shadow: 0 4px 36px var(--shadow), 0 2px 8px var(--shadow);
+  letter-spacing: -3px;
+}
+
+#temp-display sup {
+  font-size: 44px;
+  font-weight: 500;
+  vertical-align: super;
+  color: var(--tx2);
+  letter-spacing: 0;
+}
+
+#condition-pill {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 10px 24px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 100px;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--tx1);
+  text-transform: uppercase;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  width: fit-content;
+}
+
+#feels-row {
+  margin-top: 12px;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: var(--tx2);
+  text-shadow: 0 2px 10px var(--shadow);
+}
+
+/* ── RIGHT ── */
+#side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-left: 36px;
+}
+
+#loc-block { text-align: right; }
+
+#loc-name {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--tx1);
+  text-shadow: 0 2px 18px var(--shadow);
+}
+
+#loc-sub {
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--tx3);
+}
+
+#stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.scard {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.scard-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--tx3);
+  margin-bottom: 10px;
+}
+
+.scard-val {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 500;
+  color: var(--tx1);
+  line-height: 1;
+}
+
+.scard-unit {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--tx2);
+  margin-left: 3px;
+}
+
+#sun-row { display: flex; gap: 10px; }
+
+.sun-tile {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sun-emoji { font-size: 28px; }
+.sun-lbl { font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: var(--tx3); margin-bottom: 5px; }
+.sun-val { font-family: var(--font-display); font-size: 20px; font-weight: 500; color: var(--tx1); line-height: 1; }
+
+/* ── STRIP ── */
+#strip {
+  grid-area: strip;
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  gap: 10px;
+}
+
+.fcard {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 18px 10px 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+
+.fcard.today {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.30);
+}
+
+.fday-name { font-size: 11px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: var(--tx3); }
+.fday-icon { font-size: 26px; line-height: 1; }
+.fday-hi   { font-family: var(--font-display); font-size: 22px; font-weight: 500; color: var(--tx1); line-height: 1; }
+.fday-lo   { font-size: 14px; font-weight: 400; color: var(--tx3); }
+
+/* ── Status bar ── */
+#statusbar {
+  position: fixed;
+  bottom: 12px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--tx3);
+}
+
+.pulse-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(80,220,120,.85);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1;  transform:scale(1);   }
+  50%      { opacity:.3; transform:scale(.6); }
+}
+</style>
+</head>
+<body>
+
+<!-- Background crossfade layers -->
+<div id="bg-prev"></div>
+<div id="bg"></div>
+<div id="scrim"></div>
+
+<!-- Atmospheric effects -->
+<div id="atmosphere">
+  <div class="rain-layer"></div>
+  <div id="snow-layer"></div>
+  <canvas id="stars-canvas"></canvas>
+</div>
+<div id="lightning-flash"></div>
+
+<!-- App -->
+<div id="app">
+  <div id="main">
+    <div id="clock-wrap">
+      <div id="clock">00:00</div>
+      <span id="ampm-tag">AM</span>
+      <div id="date-str">Monday · 1 January 2025</div>
+    </div>
+    <div id="cur-weather">
+      <div id="wx-icon">🌤️</div>
+      <div id="temp-display">—<sup>°C</sup></div>
+      <div id="condition-pill">Loading…</div>
+      <div id="feels-row">Fetching weather…</div>
+    </div>
+  </div>
+
+  <div id="side">
+    <div id="loc-block">
+      <div id="loc-name">Stanley</div>
+      <div id="loc-sub">County Durham · England</div>
+    </div>
+    <div id="stats">
+      <div class="scard"><div class="scard-label">Humidity</div><div class="scard-val" id="s-hum">—<span class="scard-unit">%</span></div></div>
+      <div class="scard"><div class="scard-label">Wind</div><div class="scard-val" id="s-wind">—<span class="scard-unit">mph</span></div></div>
+      <div class="scard"><div class="scard-label">Pressure</div><div class="scard-val" id="s-pres">—<span class="scard-unit">hPa</span></div></div>
+      <div class="scard"><div class="scard-label">UV Index</div><div class="scard-val" id="s-uv">—</div></div>
+      <div class="scard"><div class="scard-label">Visibility</div><div class="scard-val" id="s-vis">—<span class="scard-unit">km</span></div></div>
+      <div class="scard"><div class="scard-label">Dew Point</div><div class="scard-val" id="s-dew">—<span class="scard-unit">°</span></div></div>
+    </div>
+    <div id="sun-row">
+      <div class="sun-tile"><div class="sun-emoji">🌅</div><div><div class="sun-lbl">Sunrise</div><div class="sun-val" id="sunrise">—:—</div></div></div>
+      <div class="sun-tile"><div class="sun-emoji">🌇</div><div><div class="sun-lbl">Sunset</div><div class="sun-val" id="sunset">—:—</div></div></div>
+    </div>
+  </div>
+
+  <div id="strip">
+    <div class="fcard today" id="fc0"></div>
+    <div class="fcard" id="fc1"></div>
+    <div class="fcard" id="fc2"></div>
+    <div class="fcard" id="fc3"></div>
+    <div class="fcard" id="fc4"></div>
+    <div class="fcard" id="fc5"></div>
+    <div class="fcard" id="fc6"></div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <div class="pulse-dot"></div>
+  <span id="upd-txt">Fetching weather…</span>
+</div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CONFIGURATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const CFG = {
+  lat:        54.87227,
+  lon:        -1.69382,
+  use24h:     false,
+  updateMins: 15,
+
+  // Folder where your images live, relative to this HTML file.
+  // Keep as 'weather-images/' and place that folder next to the HTML file.
+  imageDir: 'weather-images/',
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  IMAGE MAP
+//  Keys must match the background types assigned in WMO below.
+//  Values are filenames inside CFG.imageDir.
+//
+//  RECOMMENDED image specs:
+//    • Resolution : 1920×1080 px (exactly matches the monitor)
+//    • Format     : JPG (smaller) or PNG
+//    • File size  : aim for 300–600 KB each for fast loading on Pi Zero W
+//    • Style      : landscape/scenic photos work best — avoid centre subjects
+//
+//  FILE LIST — put these images in /home/pi/weather-images/
+//    clear-day.jpg    — bright sunny sky, golden hour, or blue sky + clouds
+//    clear-night.jpg  — starry night sky, milky way, or moon over landscape
+//    cloudy-day.jpg   — overcast grey sky over fields or hills
+//    cloudy-night.jpg — dark moody cloudy sky at night
+//    rain-day.jpg     — rainy street, wet landscape, grey rain over hills
+//    rain-night.jpg   — rain on a dark city or countryside at night
+//    snow-day.jpg     — snowy landscape, fields or trees in snow (bright)
+//    snow-night.jpg   — snowy scene at night, blue-dark tones
+//    storm-day.jpg    — dramatic dark storm clouds, lightning in sky
+//    storm-night.jpg  — lightning strike at night, very dark
+//    fog-day.jpg      — misty valley, fog rolling over hills (pale/white)
+//    fog-night.jpg    — foggy dark street or landscape at night
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const IMAGES = {
+  'clear-day':    'clear-day.jpg',
+  'clear-night':  'clear-night.jpg',
+  'cloudy-day':   'cloudy-day.jpg',
+  'cloudy-night': 'cloudy-night.jpg',
+  'rain-day':     'rain-day.jpg',
+  'rain-night':   'rain-night.jpg',
+  'snow-day':     'snow-day.jpg',
+  'snow-night':   'snow-night.jpg',
+  'storm-day':    'storm-day.jpg',
+  'storm-night':  'storm-night.jpg',
+  'fog-day':      'fog-day.jpg',
+  'fog-night':    'fog-night.jpg',
+};
+
+// Scrim (dark overlay) strength per image key.
+// 'light' = a little darker than the image, 'normal' = moderate,
+// 'heavy' = strong darkening (use for very bright images).
+const SCRIM = {
+  'clear-day':    'light',
+  'clear-night':  'normal',
+  'cloudy-day':   'light',
+  'cloudy-night': 'normal',
+  'rain-day':     'normal',
+  'rain-night':   'heavy',
+  'snow-day':     'heavy',
+  'snow-night':   'normal',
+  'storm-day':    'heavy',
+  'storm-night':  'heavy',
+  'fog-day':      'light',
+  'fog-night':    'normal',
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  WMO WEATHER CODE → display info
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// bg values: 'clear' | 'cloudy' | 'rain' | 'snow' | 'storm' | 'fog'
+// The actual image key is bg + '-' + (night ? 'night' : 'day')
+const WMO = {
+   0: {l:'Clear Sky',          i:'☀️',  b:'clear'},
+   1: {l:'Mainly Clear',       i:'🌤️', b:'clear'},
+   2: {l:'Partly Cloudy',      i:'⛅',  b:'cloudy'},
+   3: {l:'Overcast',           i:'☁️',  b:'cloudy'},
+  45: {l:'Fog',                i:'🌫️', b:'fog'},
+  48: {l:'Icing Fog',          i:'🌫️', b:'fog'},
+  51: {l:'Light Drizzle',      i:'🌦️', b:'rain'},
+  53: {l:'Drizzle',            i:'🌦️', b:'rain'},
+  55: {l:'Heavy Drizzle',      i:'🌧️', b:'rain'},
+  61: {l:'Light Rain',         i:'🌧️', b:'rain'},
+  63: {l:'Rain',               i:'🌧️', b:'rain'},
+  65: {l:'Heavy Rain',         i:'🌧️', b:'rain'},
+  71: {l:'Light Snow',         i:'🌨️', b:'snow'},
+  73: {l:'Snow',               i:'❄️',  b:'snow'},
+  75: {l:'Heavy Snow',         i:'❄️',  b:'snow'},
+  77: {l:'Snow Grains',        i:'🌨️', b:'snow'},
+  80: {l:'Light Showers',      i:'🌦️', b:'rain'},
+  81: {l:'Showers',            i:'🌧️', b:'rain'},
+  82: {l:'Heavy Showers',      i:'🌧️', b:'rain'},
+  85: {l:'Snow Showers',       i:'🌨️', b:'snow'},
+  86: {l:'Heavy Snow Showers', i:'🌨️', b:'snow'},
+  95: {l:'Thunderstorm',       i:'⛈️',  b:'storm'},
+  96: {l:'Thunderstorm',       i:'⛈️',  b:'storm'},
+  99: {l:'Thunderstorm',       i:'⛈️',  b:'storm'},
+};
+function wmo(c){ return WMO[c] || {l:'Unknown', i:'🌡️', b:'cloudy'}; }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  BACKGROUND IMAGE CROSSFADE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let currentKey = null;
+
+// Fallback chain: if the exact key image is missing, try these in order.
+// This means e.g. a missing 'rain-night' will fall back to 'cloudy-night',
+// then 'cloudy-day', rather than showing a blank screen.
+const FALLBACK_CHAIN = {
+  'clear-day':    [],
+  'clear-night':  ['cloudy-night'],
+  'cloudy-day':   ['clear-day'],
+  'cloudy-night': ['clear-night', 'cloudy-day'],
+  'rain-day':     ['cloudy-day'],
+  'rain-night':   ['cloudy-night', 'rain-day'],
+  'snow-day':     ['cloudy-day', 'fog-day'],
+  'snow-night':   ['cloudy-night', 'snow-day'],
+  'storm-day':    ['rain-day', 'cloudy-day'],
+  'storm-night':  ['rain-night', 'cloudy-night'],
+  'fog-day':      ['cloudy-day'],
+  'fog-night':    ['cloudy-night', 'fog-day'],
+};
+
+// Fallback solid colours — used only if ALL image files are missing.
+const FALLBACK_COLOUR = {
+  'clear-day':    '#1361b5',
+  'clear-night':  '#080e22',
+  'cloudy-day':   '#4a606e',
+  'cloudy-night': '#141c27',
+  'rain-day':     '#1e3a52',
+  'rain-night':   '#0a1825',
+  'snow-day':     '#c0d5e5',
+  'snow-night':   '#111c2a',
+  'storm-day':    '#1e2030',
+  'storm-night':  '#0c0d18',
+  'fog-day':      '#8a9eae',
+  'fog-night':    '#18222c',
+};
+
+// Test whether an image file actually loads.
+// NOTE: Chromium running a local file:// page blocks new Image() probing
+// for other file:// paths via CORS. We therefore skip the probe for
+// local paths and trust the file exists — onerror on the CSS background
+// will silently leave the previous image in place, which is acceptable.
+// For http/https paths the probe works normally.
+function isLocalPath(src) {
+  return !src.startsWith('http://') && !src.startsWith('https://');
+}
+
+function probeImage(src) {
+  if (isLocalPath(src)) {
+    // Trust it — return resolved immediately
+    return Promise.resolve(src);
+  }
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload  = () => resolve(src);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+// Try the primary key, then each fallback in the chain, then solid colour.
+async function resolveBackground(key) {
+  const tryKeys = [key, ...(FALLBACK_CHAIN[key] || [])];
+  for (const k of tryKeys) {
+    const filename = IMAGES[k];
+    if (!filename) continue;
+    const fullPath = CFG.imageDir + filename;
+    const result = await probeImage(fullPath);
+    if (result) return { src: result, resolvedKey: k };
+  }
+  // All images missing — use solid colour fallback
+  return { src: null, resolvedKey: key };
+}
+
+async function setBackground(key) {
+  if (key === currentKey) return;
+  const bgEl   = document.getElementById('bg');
+  const prevEl = document.getElementById('bg-prev');
+
+  // Copy current visible bg to the layer underneath (crossfade base)
+  prevEl.style.backgroundImage = bgEl.style.backgroundImage;
+  prevEl.style.backgroundColor = bgEl.style.backgroundColor;
+
+  // Instantly hide new layer while we swap the source
+  bgEl.style.transition = 'none';
+  bgEl.style.opacity    = '0';
+
+  const { src, resolvedKey } = await resolveBackground(key);
+
+  if (src) {
+    bgEl.style.backgroundImage  = `url('${src}')`;
+    bgEl.style.backgroundColor  = '';
+  } else {
+    bgEl.style.backgroundImage  = 'none';
+    bgEl.style.backgroundColor  = FALLBACK_COLOUR[resolvedKey] || '#0d1b2a';
+    console.warn(`No image found for "${key}" or any fallback — using solid colour.`);
+  }
+
+  // Fade the new layer in
+  bgEl.style.transition = 'opacity 1.4s ease';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    bgEl.style.opacity = '1';
+  }));
+
+  // Scrim — use the resolved key's setting (closest visual match)
+  const scrimStr = SCRIM[resolvedKey] || SCRIM[key] || 'normal';
+  const scrimEl  = document.getElementById('scrim');
+  if      (scrimStr === 'light') scrimEl.style.background = 'rgba(0,0,0,.26)';
+  else if (scrimStr === 'heavy') scrimEl.style.background = 'rgba(0,0,10,.58)';
+  else                           scrimEl.style.background = 'rgba(0,0,0,.42)';
+
+  currentKey = key;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  THEME — body class + effects
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function applyTheme(bgType, night) {
+  const key = bgType + '-' + (night ? 'night' : 'day');
+  document.body.className = document.body.className.replace(/w-\S+/g,'').trim();
+  document.body.classList.add('w-' + bgType + (night ? '-night' : ''));
+  // Snow/fog day use dark text variables
+  if (bgType === 'snow' && !night) document.body.classList.add('w-snow-day');
+  if (bgType === 'fog'  && !night) document.body.classList.add('w-fog-day');
+
+  setBackground(key);
+  updateStars(night && (bgType === 'clear' || bgType === 'cloudy'));
+  if (bgType === 'snow') spawnSnow(); else document.getElementById('snow-layer').innerHTML = '';
+  if (bgType === 'storm') startLightning(); else stopLightning();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  STARS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let starsReady = false;
+function updateStars(show) {
+  const c = document.getElementById('stars-canvas');
+  c.style.opacity = show ? '1' : '0';
+  if (show && !starsReady) {
+    c.width = innerWidth; c.height = innerHeight;
+    const ctx = c.getContext('2d');
+    for (let i = 0; i < 200; i++) {
+      const x = Math.random()*c.width, y = Math.random()*c.height*.65;
+      const r = Math.random()*1.5+.3;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${Math.random()*.8+.2})`; ctx.fill();
+    }
+    starsReady = true;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SNOW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function spawnSnow() {
+  const el = document.getElementById('snow-layer');
+  el.innerHTML = '';
+  for (let i = 0; i < 65; i++) {
+    const f = document.createElement('div'); f.className = 'flake';
+    const sz = Math.random()*13+7;
+    f.textContent = '❄';
+    f.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*-120}px;`
+      + `font-size:${sz}px;opacity:${Math.random()*.5+.15};`
+      + `animation-duration:${Math.random()*9+7}s;animation-delay:${Math.random()*-12}s;`;
+    el.appendChild(f);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  LIGHTNING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let ltInt = null;
+function startLightning() {
+  if (ltInt) return;
+  ltInt = setInterval(() => {
+    if (Math.random() < .28) {
+      const l = document.getElementById('lightning-flash');
+      l.style.opacity = '.10'; setTimeout(()=>l.style.opacity='0', 90);
+      setTimeout(()=>{ if(Math.random()<.5){ l.style.opacity='.07'; setTimeout(()=>l.style.opacity='0',65); }}, 170);
+    }
+  }, 3200);
+}
+function stopLightning() {
+  clearInterval(ltInt); ltInt = null;
+  document.getElementById('lightning-flash').style.opacity = '0';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CLOCK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function p2(n){ return String(n).padStart(2,'0'); }
+
+function tick() {
+  const n = new Date();
+  let h = n.getHours(), m = n.getMinutes();
+  const ap = h >= 12 ? 'PM' : 'AM';
+  if (!CFG.use24h) { h = h % 12 || 12; }
+  document.getElementById('clock').textContent    = p2(h)+':'+p2(m);
+  document.getElementById('ampm-tag').textContent = CFG.use24h ? '' : ap;
+  document.getElementById('date-str').textContent =
+    DAYS[n.getDay()] + '  ·  ' + n.getDate() + ' ' + MONTHS[n.getMonth()] + ' ' + n.getFullYear();
+}
+setInterval(tick, 1000);
+tick();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SUN TIME FORMAT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function fmtSun(iso) {
+  const d = new Date(iso);
+  let h = d.getHours(), m = d.getMinutes();
+  if (!CFG.use24h) {
+    const ap = h >= 12 ? 'pm' : 'am'; h = h%12||12;
+    return `${h}:${p2(m)} ${ap}`;
+  }
+  return `${p2(h)}:${p2(m)}`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  WEATHER FETCH & RENDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function loadWeather() {
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${CFG.lat}&longitude=${CFG.lon}`
+      +'&current=temperature_2m,apparent_temperature,relative_humidity_2m,'
+      +'wind_speed_10m,weather_code,surface_pressure,visibility,uv_index,is_day,dew_point_2m'
+      +'&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset'
+      +'&wind_speed_unit=mph&temperature_unit=celsius&forecast_days=7&timezone=auto';
+
+    const d   = await (await fetch(url)).json();
+    const cur = d.current, dy = d.daily;
+    const inf = wmo(cur.weather_code);
+    const night = cur.is_day === 0;
+
+    applyTheme(inf.b, night);
+
+    document.getElementById('wx-icon').textContent = inf.i;
+    document.getElementById('temp-display').innerHTML = Math.round(cur.temperature_2m)+'<sup>°C</sup>';
+    document.getElementById('condition-pill').textContent = inf.l;
+    document.getElementById('feels-row').textContent = 'Feels like '+Math.round(cur.apparent_temperature)+'°';
+
+    document.getElementById('s-hum').innerHTML  = Math.round(cur.relative_humidity_2m)+'<span class="scard-unit">%</span>';
+    document.getElementById('s-wind').innerHTML = Math.round(cur.wind_speed_10m)+'<span class="scard-unit">mph</span>';
+    document.getElementById('s-pres').innerHTML = Math.round(cur.surface_pressure)+'<span class="scard-unit">hPa</span>';
+    document.getElementById('s-uv').innerHTML   = Math.round(cur.uv_index||0);
+    document.getElementById('s-vis').innerHTML  = (cur.visibility!=null?(cur.visibility/1000).toFixed(1):'—')+'<span class="scard-unit">km</span>';
+    document.getElementById('s-dew').innerHTML  = Math.round(cur.dew_point_2m??0)+'<span class="scard-unit">°</span>';
+
+    document.getElementById('sunrise').textContent = fmtSun(dy.sunrise[0]);
+    document.getElementById('sunset').textContent  = fmtSun(dy.sunset[0]);
+
+    const dnames = dy.time.map(t => DAYS_S[new Date(t+'T12:00:00').getDay()]);
+    for (let i = 0; i < 7; i++) {
+      const fc = document.getElementById('fc'+i); if(!fc) continue;
+      const fi = wmo(dy.weather_code[i]);
+      fc.innerHTML =
+        `<div class="fday-name">${i===0?'Today':dnames[i]}</div>`
+       +`<div class="fday-icon">${fi.i}</div>`
+       +`<div class="fday-hi">${Math.round(dy.temperature_2m_max[i])}°</div>`
+       +`<div class="fday-lo">${Math.round(dy.temperature_2m_min[i])}°</div>`;
+    }
+
+    const now = new Date();
+    document.getElementById('upd-txt').textContent =
+      'Updated at '+p2(now.getHours())+':'+p2(now.getMinutes());
+
+  } catch(e) {
+    console.error('Weather error:', e);
+    document.getElementById('condition-pill').textContent = 'Check connection';
+  }
+}
+
+loadWeather();
+setInterval(loadWeather, CFG.updateMins * 60000);
+</script>
+</body>
+</html>
