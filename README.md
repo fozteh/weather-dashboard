@@ -1,6 +1,6 @@
 # Pi Weather Dashboard — Setup Guide
 
-![Dashboard preview](Screenshot.png)
+![Dashboard preview](Screenshot_2026-06-08_152618.png)
 
 A full-screen weather dashboard for a 1080p display. Shows a live clock, current conditions, stats, sunrise/sunset, and a 7-day forecast, with background images that change to match the weather. Data comes from the free Open-Meteo API — no account or API key needed.
 
@@ -55,6 +55,12 @@ SSH in and run a full update first:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
+```
+
+Install the emoji font — without this, weather icons in the forecast strip will show as blank rectangles:
+
+```bash
+sudo apt install -y fonts-noto-color-emoji
 ```
 
 ### Switch to X11
