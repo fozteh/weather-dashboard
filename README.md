@@ -4,7 +4,7 @@
 
 A full-screen weather dashboard for a 1080p display. Shows a live clock, current conditions, stats, sunrise/sunset, and a 7-day forecast, with background images that change to match the weather. Data comes from the free Open-Meteo API — no account or API key needed.
 
-**Tested on:** Raspberry Pi 3A+, Raspberry Pi 4B  
+**Tested on:** Raspberry Pi 4B  
 **OS:** Raspberry Pi OS Trixie (current release, October 2025)
 
 ---
@@ -37,7 +37,7 @@ The `weather-images/` folder must sit **next to** the HTML file:
 
 1. Download **Raspberry Pi Imager** from [raspberrypi.com/software](https://www.raspberrypi.com/software/)
 2. Choose:
-   - **Device:** Raspberry Pi 3A+ or 4B
+   - **Device:** Raspberry Pi 4B
    - **OS:** Raspberry Pi OS (64-bit) — this will be Trixie, the current release
    - **Storage:** your SD card
 3. Click the **gear/settings icon** and configure:
@@ -144,7 +144,6 @@ The dashboard should open full-screen. Press `Alt+F4` to exit.
 
 **Notes:**
 - If Chromium prompts to set up a default keyring, click **Cancel** — the dashboard doesn't need it. Adding `--password-store=basic` to the launch command (as above) prevents the prompt appearing again.
-- **Pi 3A+:** Chromium may warn that it is not recommended for devices with less than 1GB of RAM. Click **Launch anyway** — Chromium stores this preference in its profile and will not ask again, including on subsequent reboots.
 - Any `PHONE_REGISTRATION_ERROR` or `DEPRECATED_ENDPOINT` messages in the terminal are harmless Chromium background noise — the `2>/dev/null` suppresses them.
 
 ---
@@ -228,8 +227,6 @@ Also update the location name displayed on screen — search the HTML for `Stanl
 ## Hardware Notes
 
 **Pi 4B** — use a proper 5V 3A USB-C supply. The official Raspberry Pi 27W USB-C supply is recommended. Underpowering causes instability and SD card corruption. Fit a heatsink or passive-cooled case — the 4B runs warm and will throttle under sustained load without one.
-
-**Pi 3A+** — 5V 2.5A micro-USB supply. Runs cooler than the 4B and is well suited as a dedicated always-on display driver.
 
 ---
 
