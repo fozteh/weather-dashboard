@@ -144,6 +144,7 @@ The dashboard should open full-screen. Press `Alt+F4` to exit.
 
 **Notes:**
 - If Chromium prompts to set up a default keyring, click **Cancel** — the dashboard doesn't need it. Adding `--password-store=basic` to the launch command (as above) prevents the prompt appearing again.
+- **Pi 3A+:** Chromium may warn that it is not recommended for devices with less than 1GB of RAM. Click **Launch anyway** — Chromium stores this preference in its profile and will not ask again, including on subsequent reboots.
 - Any `PHONE_REGISTRATION_ERROR` or `DEPRECATED_ENDPOINT` messages in the terminal are harmless Chromium background noise — the `2>/dev/null` suppresses them.
 
 ---
