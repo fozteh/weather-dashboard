@@ -178,11 +178,13 @@ crontab -l
 To turn the display off at night and back on in the morning, add two more cron entries (`crontab -e`):
 
 ```
-0 22 * * * DISPLAY=:0 xset dpms force off
-0 6  * * * DISPLAY=:0 xset dpms force on
+0 22 * * * vcgencmd display_power 0
+0 6  * * * vcgencmd display_power 1
 ```
 
-This blanks the screen at 10pm and wakes it at 6am every day. Adjust the hours to suit — the format is `minute hour * * *`.
+This cuts the HDMI signal at 10pm and restores it at 6am every day. `vcgencmd` operates at the hardware level and is unaffected by X11 settings — more reliable than `xset` on the Pi. Adjust the hours to suit — the format is `minute hour * * *`.
+
+**Note:** `xset dpms` will not work here because the `lightdm.conf` entry from Step 8 disables DPMS at the X server level — use `vcgencmd` only.
 
 ---
 
