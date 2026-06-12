@@ -173,22 +173,7 @@ crontab -l
 
 ---
 
-## Step 7 — Screen Blanking Hours
-
-To turn the display off at night and back on in the morning, add two more cron entries (`crontab -e`):
-
-```
-0 22 * * * DISPLAY=:0 xrandr --output HDMI-2 --off
-0 6  * * * DISPLAY=:0 xrandr --output HDMI-2 --auto
-```
-
-This disables the HDMI output at 10pm and restores it at 6am. Adjust the hours to suit — the format is `minute hour * * *`.
-
-**Note:** Check your output name first by running `DISPLAY=:0 xrandr` — it will list connected outputs. Substitute `HDMI-2` with whatever shows as `connected` on your system. `xset dpms` and `vcgencmd display_power` are not reliable on Pi OS Trixie — use `xrandr` only.
-
----
-
-## Step 8 — Keep the Screen On
+## Step 7 — Keep the Screen On
 
 Edit lightdm to prevent the display from blanking permanently:
 
