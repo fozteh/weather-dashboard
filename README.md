@@ -178,13 +178,13 @@ crontab -l
 To turn the display off at night and back on in the morning, add two more cron entries (`crontab -e`):
 
 ```
-0 22 * * * vcgencmd display_power 0
-0 6  * * * vcgencmd display_power 1
+0 22 * * * DISPLAY=:0 xrandr --output HDMI-2 --off
+0 6  * * * DISPLAY=:0 xrandr --output HDMI-2 --auto
 ```
 
-This cuts the HDMI signal at 10pm and restores it at 6am every day. `vcgencmd` operates at the hardware level and is unaffected by X11 settings — more reliable than `xset` on the Pi. Adjust the hours to suit — the format is `minute hour * * *`.
+This disables the HDMI output at 10pm and restores it at 6am. Adjust the hours to suit — the format is `minute hour * * *`.
 
-**Note:** `xset dpms` will not work here because the `lightdm.conf` entry from Step 8 disables DPMS at the X server level — use `vcgencmd` only.
+**Note:** Check your output name first by running `DISPLAY=:0 xrandr` — it will list connected outputs. Substitute `HDMI-2` with whatever shows as `connected` on your system. `xset dpms` and `vcgencmd display_power` are not reliable on Pi OS Trixie — use `xrandr` only.
 
 ---
 
