@@ -150,13 +150,14 @@ body.w-fog-day {
 
 #ampm-tag {
   display: inline-block;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 400;
-  letter-spacing: 7px;
+  letter-spacing: 5px;
   color: var(--tx2);
   text-shadow: 0 2px 12px var(--shadow);
-  margin-top: 14px;
   text-transform: uppercase;
+  vertical-align: super;
+  margin-left: 10px;
 }
 
 #date-str {
@@ -266,7 +267,8 @@ body.w-fog-day {
   grid-area: side;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 20px;
   padding-left: 36px;
 }
 
@@ -274,7 +276,7 @@ body.w-fog-day {
 
 #loc-name {
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 42px;
   font-weight: 500;
   font-style: italic;
   color: var(--tx1);
@@ -465,8 +467,7 @@ body.w-fog-day {
 <div id="app">
   <div id="main">
     <div id="clock-wrap">
-      <div id="clock">00:00</div>
-      <span id="ampm-tag">AM</span>
+      <div><span id="clock">00:00</span><span id="ampm-tag">AM</span></div>
       <div id="date-str">Monday · 1 January 2025</div>
     </div>
     <div id="mid-panel">
