@@ -122,10 +122,11 @@ body.w-fog-day {
   width: 100vw; height: 100vh;
   display: grid;
   grid-template-columns: 1fr 380px;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: 1fr auto auto;
   grid-template-areas:
-    "main  side"
-    "strip strip";
+    "main   side"
+    "hourly hourly"
+    "strip  strip";
   padding: 54px 56px 40px 56px;
 }
 
@@ -348,6 +349,40 @@ body.w-fog-day {
 .sun-lbl { font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: var(--tx3); margin-bottom: 5px; }
 .sun-val { font-family: var(--font-display); font-size: 20px; font-weight: 500; color: var(--tx1); line-height: 1; }
 
+/* ── HOURLY STRIP ── */
+#hourly {
+  grid-area: hourly;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  gap: 10px;
+}
+
+.hcard {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 14px 10px 12px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.hcard.now {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.30);
+}
+
+.hcard-time { font-size: 11px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: var(--tx3); }
+.hcard-icon { font-size: 22px; line-height: 1; }
+.hcard-temp { font-family: var(--font-display); font-size: 20px; font-weight: 500; color: var(--tx1); line-height: 1; }
+
 /* ── STRIP ── */
 #strip {
   grid-area: strip;
@@ -474,6 +509,17 @@ body.w-fog-day {
       <div class="sun-tile"><div class="sun-emoji">🌅</div><div><div class="sun-lbl">Sunrise</div><div class="sun-val" id="sunrise">—:—</div></div></div>
       <div class="sun-tile"><div class="sun-emoji">🌇</div><div><div class="sun-lbl">Sunset</div><div class="sun-val" id="sunset">—:—</div></div></div>
     </div>
+  </div>
+
+  <div id="hourly">
+    <div class="hcard now" id="hc0"></div>
+    <div class="hcard" id="hc1"></div>
+    <div class="hcard" id="hc2"></div>
+    <div class="hcard" id="hc3"></div>
+    <div class="hcard" id="hc4"></div>
+    <div class="hcard" id="hc5"></div>
+    <div class="hcard" id="hc6"></div>
+    <div class="hcard" id="hc7"></div>
   </div>
 
   <div id="strip">
@@ -841,8 +887,9 @@ async function loadWeather() {
       `https://api.open-meteo.com/v1/forecast?latitude=${CFG.lat}&longitude=${CFG.lon}`
       +'&current=temperature_2m,apparent_temperature,relative_humidity_2m,'
       +'wind_speed_10m,weather_code,surface_pressure,visibility,uv_index,is_day,dew_point_2m'
+      +'&hourly=temperature_2m,weather_code,is_day'
       +'&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset'
-      +'&wind_speed_unit=mph&temperature_unit=celsius&forecast_days=7&timezone=auto';
+      +'&wind_speed_unit=mph&temperature_unit=celsius&forecast_days=2&timezone=auto';
 
     const d   = await (await fetch(url)).json();
     const cur = d.current, dy = d.daily;
@@ -875,6 +922,34 @@ async function loadWeather() {
        +`<div class="fday-icon">${fi.i}</div>`
        +`<div class="fday-hi">${Math.round(dy.temperature_2m_max[i])}°</div>`
        +`<div class="fday-lo">${Math.round(dy.temperature_2m_min[i])}°</div>`;
+    }
+
+    // Hourly strip — next 8 hours from current hour
+    const hr = d.hourly;
+    const nowDate = new Date();
+    const todayStr = nowDate.toISOString().slice(0,10);
+    const curHour  = nowDate.getHours();
+    const startIdx = hr.time.findIndex(t => t === `${todayStr}T${p2(curHour)}:00`);
+    if (startIdx !== -1) {
+      for (let i = 0; i < 8; i++) {
+        const idx = startIdx + i;
+        const hc  = document.getElementById('hc' + i);
+        if (!hc || idx >= hr.time.length) continue;
+        const hi  = wmo(hr.weather_code[idx]);
+        const t   = new Date(hr.time[idx]);
+        let   lbl;
+        if (i === 0) {
+          lbl = 'Now';
+        } else if (!CFG.use24h) {
+          const h = t.getHours(); lbl = (h % 12 || 12) + (h >= 12 ? 'pm' : 'am');
+        } else {
+          lbl = p2(t.getHours()) + ':00';
+        }
+        hc.innerHTML =
+          `<div class="hcard-time">${lbl}</div>`
+         +`<div class="hcard-icon">${hi.i}</div>`
+         +`<div class="hcard-temp">${Math.round(hr.temperature_2m[idx])}°</div>`;
+      }
     }
 
     const now = new Date();
