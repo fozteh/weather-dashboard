@@ -1,6 +1,6 @@
 # Pi Weather Dashboard — Setup Guide
 
-![Dashboard preview](Screenshot_2026-06-08_152618.png)
+![Dashboard preview](Screenshot.png)
 
 A full-screen weather dashboard for a 1080p display. Shows a live clock, current conditions, stats, sunrise/sunset, and a 7-day forecast, with background images that change to match the weather. Data comes from the free Open-Meteo API — no account or API key needed.
 
